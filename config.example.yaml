@@ -8,4 +8,4 @@ jira:
   username: '[username]'
 local:
   log_file: /var/log/jiradog/jiradog.log
-  metric_file: /etc/jiradog/metrics.json
+  metric_file: /etc/jiradog/metrics.yaml
