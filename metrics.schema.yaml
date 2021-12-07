@@ -1,0 +1,79 @@
+$schema: http://json-schema.org/draft-06/schema#
+definitions:
+  data_provider:
+    properties:
+      __comment:
+        type: string
+      filter:
+        type: string
+      jql:
+        type: string
+      method:
+        type: string
+      source:
+        type: string
+      statuses:
+        items:
+          properties:
+            date:
+              pattern: ^{({|%|#).*(}|%|#)}$
+              type: string
+            source:
+              pattern: issue|changelog
+              type: string
+          type: object
+        type: array
+    required:
+    - source
+    - jql
+    - method
+    type: object
+items:
+  allOf:
+  - required:
+    - metric_name
+    - projects
+    - method
+  - oneOf:
+    - required:
+      - issues
+    - required:
+      - numerator
+      - denominator
+  properties:
+    __comment:
+      type: string
+    denominator:
+      $ref: '#/definitions/data_provider'
+    grouping:
+      properties:
+        boards:
+          patternProperties:
+            '[A-Z]*':
+              type: number
+          type: object
+        by:
+          pattern: sprint
+          type: string
+        count:
+          type: string
+      required:
+      - by
+      - count
+      type: object
+    issues:
+      $ref: '#/definitions/data_provider'
+    method:
+      type: string
+    metric_name:
+      pattern: (jiradog)(\.)(([a-z0-9]+)([A-Z]{1}[a-z]*)*)\.(([a-z0-9]+)([A-Za-z]*)+)
+      type: string
+    numerator:
+      $ref: '#/definitions/data_provider'
+    projects:
+      items:
+        type: string
+      type: array
+  type: object
+type: array
+

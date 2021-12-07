@@ -1,10 +1,10 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 """Polls JIRA API and uploads to DataDog as a metric.
 
 Args:
-    -m|--metric:	String		Specify a metric name to run from the metrics.json file.
-    -l|--list:		Boolean		List metric names from metrics.json.
+    -m|--metric:	String		Specify a metric name to run from the metrics.yaml file.
+    -l|--list:		Boolean		List metric names from metrics.yaml.
     -n|--noop:		Boolean		Do everything except upload to Datadog,
               				print payload to stdin.
 Returns:
@@ -15,6 +15,7 @@ Returns:
 import argparse
 import sys
 import json
+import yaml
 import time
 import logging
 import os
@@ -22,29 +23,10 @@ import hashlib
 from pprint import pprint
 
 # Check for modules that are required but may not be installed.
-try:
-    import requests
-except ImportError:
-    logging.critical("requests module not found.")
-    sys.exit(71)
-
-try:
-    import jinja2
-except ImportError:
-    logging.critical("jinja2 module not found.")
-    sys.exit(71)
-
-try:
-    from datadog import initialize, api
-except ImportError:
-    logging.critical("datadog module not found.")
-    sys.exit(71)
-
-try:
-    from jira import JIRA
-except ImportError:
-    logging.critical("jira module not found.")
-    sys.exit(71)
+import requests
+import jinja2
+from datadog import initialize, api
+from jira import JIRA
 
 class JiraProvider(object):
     """Group of functions/methods to get/manipulate JIRA data
@@ -76,7 +58,7 @@ class JiraProvider(object):
         if metric_data_loaded.get('grouping', False) is not False:
             sprint_ids = self.get_sprints(metric_data_loaded, API_USERNAME, API_PASSWORD, project)
             queries = []
-            for key, value in sprint_ids.iteritems():
+            for key, value in sprint_ids.items():
                 jql = jinja2.Template(metric_data_loaded \
                                       [position] \
                                       ['jql']).render(project=project,
@@ -93,7 +75,7 @@ class JiraProvider(object):
                                                   metric=metric_data_loaded)
             queries = [jinja2.Template(jql).render(project=project)]
         for query in queries:
-            jql_sha512 = hashlib.sha512(query).hexdigest()
+            jql_sha512 = hashlib.sha512(query.encode('utf-8')).hexdigest()
             if cache.get(jql_sha512, False):
                 logging.info("Using cached version of query and results")
                 issues = cache[jql_sha512]
@@ -132,7 +114,7 @@ class JiraProvider(object):
                                                [position]
                                                ['filter']).render(issue=issue,
                                                                   metric=metric_data_loaded)
-                              ).render(issue=issue) == u'true':
+                              ).render(issue=issue) == 'true':
                 filtered_issues.append(issue)
         return filtered_issues
 
@@ -323,19 +305,19 @@ def custom_field_sum(issues, custom_field):
     return custom_field_running_total
 
 def load_metric_file(metric_file, metrics):
-    """Created python dictionary from metrics.json file.
+    """Created python dictionary from metrics.yaml file.
 
     Args:
-        metric_file:		String		The file location for metrics.json.
+        metric_file:		String		The file location for metrics.yaml.
         is_args_metric_set:	Boolean		Specifies if the entire file is to be loaded
                            			(False) or a single metric by name (True)
 
     Returns:
-        Dictionary of the values in the metrics.json file.
+        Dictionary of the values in the metrics.yaml file.
     """
     with open(metric_file) as metric_file_loaded:
         try:
-            metric_file_full = json.load(metric_file_loaded)
+            metric_file_full = yaml.load(metric_file_loaded, Loader=yaml.SafeLoader)
         except ValueError:
             logging.error("%s is not properly formatted using the JSON spacification", METRIC_JSON)
             sys.exit(1)
@@ -391,7 +373,7 @@ def main():
 
     if args.list:
         for metric in metric_file_full:
-            print metric['metric_name']
+            print(metric['metric_name'])
         sys.exit(0)
 
     if args.describe:
@@ -404,7 +386,7 @@ def main():
         sys.exit(0)
 
     if args.version:
-        print os.path.basename(__file__) + ' ' + VERSION
+        print(os.path.basename(__file__) + ' ' + VERSION)
         sys.exit(0)
 
     if args.verbosity is not None:
@@ -481,34 +463,34 @@ def main():
         if not args.formatting or args.formatting == 'json':
             pprint(PAYLOAD)
         elif args.formatting == 'jira':
-            print '||metric||project||points||'
+            print('||metric||project||points||')
             for line in PAYLOAD:
-                print '|' + \
+                print('|' + \
                       line['metric'] + \
                       '|' + \
                       line['tags'][0] + \
                       '|' + \
                       str(line['points'][1]) + \
-                      '|'
+                      '|')
         elif args.formatting == 'markdown':
-            print '|metric|project|points|'
-            print '| ----- | ----- | ----- |'
+            print('|metric|project|points|')
+            print('| ----- | ----- | ----- |')
             for line in PAYLOAD:
-                print '|' + \
+                print('|' + \
                       line['metric'] + \
                       '|' + \
                       line['tags'][0] + \
                       '|' + \
                       str(line['points'][1]) + \
-                      '|'
+                      '|')
         elif args.formatting == 'csv':
-            print 'metric,project,points'
+            print('metric,project,points')
             for payload in PAYLOAD:
-                print payload['metric'] + \
+                print(payload['metric'] + \
                       ',' + \
                       payload['tags'][0] + \
                       ',' + \
-                      str(payload['points'][1])
+                      str(payload['points'][1]))
     else:
         # Upload to DataDog
         api.Metric.send(PAYLOAD)
@@ -516,14 +498,15 @@ def main():
 
 if __name__ == "__main__":
     # Setting important variables, all static.
+    cwd = os.getcwd()
     FUNCTION_MAP = {
         'mean_time_between_statuses': mean_time_between_statuses,
         'custom_field_sum': custom_field_sum
         }
     MAX_RESULTS = str(100)
-    VERSION_FILE = '/etc/jiradog/meta/VERSION'
-    RELEASE_FILE = '/etc/jiradog/meta/RELEASE'
-    CONFIG_FILE = '/etc/jiradog/config.json'
+    VERSION_FILE = f'{cwd}/VERSION'
+    RELEASE_FILE = f'{cwd}/RELEASE'
+    CONFIG_FILE = f'{cwd}/config.yaml'
     HEADERS = {'Content-type': 'application/json'}
     PAYLOAD = []
     NOW = time.time()
@@ -538,7 +521,7 @@ if __name__ == "__main__":
 
     # Loads the configuration file for the script.
     with open(CONFIG_FILE) as config_data_file:
-        CONFIG_DATA_LOADED = json.load(config_data_file)
+        CONFIG_DATA_LOADED = yaml.load(config_data_file, Loader=yaml.SafeLoader)
     if CONFIG_DATA_LOADED.get('default', False) is True:
         logging.error("The default config hasn't been modified.")
         sys.exit(1)
@@ -560,6 +543,7 @@ if __name__ == "__main__":
         "ERROR": 40,
         "CRITICAL": 50
     }
+    print(CONFIG_DATA_LOADED)
     if CONFIG_DATA_LOADED['local']['logging_level'].upper() in LOGGING_LEVELS:
         logging.basicConfig(filename=LOG_FILE,
                             format='%(asctime)s %(levelname)s %(message)s',

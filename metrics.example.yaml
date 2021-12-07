@@ -1,0 +1,31 @@
+- __comment: Recent unclosed service requests
+  issues:
+    jql: project = "PL" AND type = "Service Request" AND status IN ("Ready for Development","In
+      Progress","Review/QA") AND updated >= -1d ORDER BY created DESC
+    method: ticket_count
+    source: jira
+  method: direct
+  metric_name: jiradog.recentUnclosedServiceRequests
+  projects:
+  - PL
+- __comment: Recently closed service requests
+  issues:
+    jql: project = "PL" AND type = "Service Request" AND status NOT IN ("Ready for
+      Development","In Progress","Review/QA") AND updated >= -1d ORDER BY created
+      DESC
+    method: ticket_count
+    source: jira
+  method: direct
+  metric_name: jiradog.recentClosedServiceRequests
+  projects:
+  - PL
+- __comment: Service Requests over the last 7 days
+  issues:
+    jql: project = "PL" AND type = "Service Request" AND updated >= -7d ORDER BY created
+      DESC
+    method: ticket_count
+    source: jira
+  method: direct
+  metric_name: jiradog.sevenDaysServiceRequestCount
+  projects:
+  - PL

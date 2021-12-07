@@ -1,2 +1,6 @@
 *.pyc
 *.deb
+config.json
+metrics.json
+config.yaml
+metrics.yaml
